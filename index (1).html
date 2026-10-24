@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jocul celor două vase | Water Jug Puzzle</title>
+<style>
+:root{font-family:system-ui,Segoe UI,sans-serif;color:#17283d;background:#f2f6fb}
+*{box-sizing:border-box}body{margin:0;padding:24px}main{max-width:920px;margin:auto}
+header{text-align:center}h1{margin-bottom:8px}.panel{background:white;border-radius:18px;padding:22px;margin:18px 0;box-shadow:0 4px 20px #17345312}
+.toolbar,.actions,.controls{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
+button,select{font:inherit;border-radius:10px;padding:10px 15px;border:1px solid #cad5e2;background:white;color:#17283d;cursor:pointer}
+button:hover:not(:disabled){background:#e7f0ff}button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:#155fc4;color:white;border-color:#155fc4}button.primary:hover{background:#084ba3}
+.vessels{display:flex;gap:40px;justify-content:center;align-items:end;padding:22px 0;flex-wrap:wrap}
+.vessel{text-align:center;min-width:180px}.glass{height:250px;width:150px;border:5px solid #47647c;border-top:0;border-radius:0 0 20px 20px;margin:16px auto 8px;position:relative;overflow:hidden;background:repeating-linear-gradient(to top,#eaf1f7 0,#eaf1f7 1px,transparent 1px,transparent 20%);}
+#glass3{width:120px;height:200px;margin-top:66px} .water{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,#62c7ff,#1686db);transition:height .45s ease}
+.amount{position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:28px;z-index:2;text-shadow:0 1px 3px white}
+.status{text-align:center;font-weight:650;min-height:28px}.success{color:#12723a}
+.actions{margin:14px 0}.actions button{min-width:155px}
+.history{max-height:190px;overflow:auto;line-height:1.8}small{color:#54667c}
+@media(max-width:550px){body{padding:10px}.panel{padding:15px}.vessels{gap:8px}.glass{width:115px;height:205px}#glass3{width:92px;height:164px;margin-top:57px}.vessel{min-width:130px}.actions button{min-width:125px;flex:1}}
+</style>
+</head>
+<body><main>
+<header><h1 id="title"></h1><p id="subtitle"></p></header>
+<div class="toolbar"><label for="lang" id="languageLabel"></label><select id="lang"><option value="ro">Română</option><option value="en">English</option></select><span id="moves"></span></div>
+<section class="panel"><h2 id="instructionsTitle"></h2><p id="instructions"></p><p id="rules"></p></section>
+<section class="panel">
+<div class="vessels">
+<div class="vessel"><strong id="label5"></strong><div class="glass" role="img" id="glass5"><div class="water" id="water5"></div><div class="amount" id="amount5"></div></div><small id="capacity5"></small></div>
+<div class="vessel"><strong id="label3"></strong><div class="glass" role="img" id="glass3"><div class="water" id="water3"></div><div class="amount" id="amount3"></div></div><small id="capacity3"></small></div>
+</div>
+<div class="status" id="status" aria-live="polite"></div>
+<div class="actions" id="actionButtons"></div>
+<div class="controls"><button id="hint"></button><button id="solve"></button><button id="reset" class="primary"></button></div>
+</section>
+<section class="panel"><h2 id="historyTitle"></h2><div id="history" class="history" aria-live="polite"></div></section>
+</main>
+<script>
+const dict={
+ro:{title:"Jocul celor două vase",subtitle:"Provocarea celor 4 litri",languageLabel:"Limbă:",instructionsTitle:"Cum se joacă",instructions:"Ai două vase, unul de 5 litri și unul de 3 litri, și o sursă nelimitată de apă. Obiectivul este să obții exact 4 litri într-unul dintre vase.",rules:"La fiecare mutare poți umple complet un vas, îl poți goli sau poți turna apă dintr-un vas în celălalt până când primul se golește sau al doilea se umple. Vasele nu au gradații pentru măsurători intermediare.",label5:"Vasul mare",label3:"Vasul mic",capacity:"Capacitate",moves:"Mutări",fill5:"Umple 5 L",fill3:"Umple 3 L",empty5:"Golește 5 L",empty3:"Golește 3 L",pour53:"Toarnă 5 → 3",pour35:"Toarnă 3 → 5",hint:"Indiciu",solve:"Rezolvă",reset:"Joc nou",historyTitle:"Istoricul mutărilor",initial:"Ambele vase sunt goale.",won:"Felicitări! Ai obținut exact 4 litri!",playing:"Obține exact 4 litri într-un vas.",noMove:"Mutarea nu schimbă cantitatea de apă.",hintText:"Indiciu — următoarea mutare optimă:",solution:"Rezolvare automată:",step:"Pasul",done:"Problema este deja rezolvată."},
+en:{title:"The Two Water Jugs",subtitle:"The 4-Litre Challenge",languageLabel:"Language:",instructionsTitle:"How to play",instructions:"You have two jugs, one holding 5 litres and the other 3 litres, and an unlimited water supply. Your goal is to measure exactly 4 litres in either jug.",rules:"On each move, you may fill a jug completely, empty it, or pour from one jug to the other until the source is empty or the destination is full. There are no measurement markings for intermediate amounts.",label5:"Large jug",label3:"Small jug",capacity:"Capacity",moves:"Moves",fill5:"Fill 5 L",fill3:"Fill 3 L",empty5:"Empty 5 L",empty3:"Empty 3 L",pour53:"Pour 5 → 3",pour35:"Pour 3 → 5",hint:"Hint",solve:"Solve",reset:"New game",historyTitle:"Move history",initial:"Both jugs are empty.",won:"Congratulations! You measured exactly 4 litres!",playing:"Get exactly 4 litres in a jug.",noMove:"This move does not change the water levels.",hintText:"Hint — next optimal move:",solution:"Automatic solution:",step:"Step",done:"The puzzle is already solved."}
+};
+let lang="ro",a=0,b=0,moves=0,history=[],note="",solutionSteps=[];
+const ids=["fill5","fill3","empty5","empty3","pour53","pour35"];
+function next(x,y,id){switch(id){case"fill5":return[5,y];case"fill3":return[x,3];case"empty5":return[0,y];case"empty3":return[x,0];case"pour53":{let n=Math.min(x,3-y);return[x-n,y+n]}case"pour35":{let n=Math.min(y,5-x);return[x+n,y-n]}}}
+function shortest(x,y){let q=[{x,y,path:[]}],seen=new Set([x+","+y]);while(q.length){let s=q.shift();if(s.x===4||s.y===4)return s.path;for(let id of ids){let [nx,ny]=next(s.x,s.y,id),key=nx+","+ny;if(!seen.has(key)){seen.add(key);q.push({x:nx,y:ny,path:[...s.path,id]})}}}return[]}
+function act(id){let [nx,ny]=next(a,b,id);if(nx===a&&ny===b){note=dict[lang].noMove;render();return}a=nx;b=ny;moves++;history.push({id,a,b});note="";solutionSteps=[];render()}
+function render(){let t=dict[lang];for(let key of ["title","subtitle","languageLabel","instructionsTitle","instructions","rules","label5","label3","hint","solve","reset","historyTitle"])document.getElementById(key).textContent=t[key];
+document.getElementById("capacity5").textContent=t.capacity+": 5 L";document.getElementById("capacity3").textContent=t.capacity+": 3 L";
+document.getElementById("moves").textContent=t.moves+": "+moves;
+for(let [cap,value] of [[5,a],[3,b]]){document.getElementById("water"+cap).style.height=(value/cap*100)+"%";document.getElementById("amount"+cap).textContent=value+" / "+cap+" L";document.getElementById("glass"+cap).setAttribute("aria-label",value+" / "+cap+" L")}
+let win=a===4||b===4;document.getElementById("status").textContent=note||(win?t.won:t.playing);document.getElementById("status").className="status"+(win?" success":"");
+document.getElementById("actionButtons").innerHTML="";for(let id of ids){let btn=document.createElement("button");btn.textContent=t[id];let [nx,ny]=next(a,b,id);btn.disabled=win||(nx===a&&ny===b);btn.onclick=()=>act(id);document.getElementById("actionButtons").append(btn)}
+document.getElementById("hint").disabled=win;document.getElementById("solve").disabled=win;
+let lines=history.map((h,i)=>`${i+1}. ${t[h.id]} → (5 L: ${h.a}, 3 L: ${h.b})`);document.getElementById("history").textContent=lines.length?lines.join("\n"):t.initial;document.getElementById("history").style.whiteSpace="pre-line"}
+document.getElementById("lang").onchange=e=>{lang=e.target.value;if(note)note="";render()};
+document.getElementById("hint").onclick=()=>{let path=shortest(a,b);note=path.length?dict[lang].hintText+" "+dict[lang][path[0]]:dict[lang].done;render()};
+document.getElementById("solve").onclick=()=>{let path=shortest(a,b);if(!path.length)return;for(let id of path){let [nx,ny]=next(a,b,id);a=nx;b=ny;moves++;history.push({id,a,b})}note=dict[lang].solution+" "+path.map(id=>dict[lang][id]).join(" → ");render()};
+document.getElementById("reset").onclick=()=>{a=0;b=0;moves=0;history=[];note="";render()};
+render();
+</script></body></html>
